@@ -17,8 +17,30 @@ import { SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  ArrowDown,
+  ArrowUp,
+  AsteriskSquare,
+  Hash,
+  LucideIcon,
+  Mail,
+  MoveDown,
+  MoveUp,
+  PartyPopper,
+  PencilLine,
+  Trash,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
 
 const INPUT_TYPES = ["text", "number", "email", "password"] as const;
+
+const InputTypesIcons: Record<(typeof INPUT_TYPES)[number], LucideIcon> = {
+  text: PencilLine,
+  number: Hash,
+  email: Mail,
+  password: AsteriskSquare,
+};
 
 function capitalizeFirstLetter(string: string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
@@ -51,6 +73,19 @@ type InputCreatorFormFields = z.infer<typeof inputCreatorSchema>;
 
 type CreatedFormFields = z.infer<typeof createdFormSchema>;
 
+function formatCreatedFormData(data: CreatedFormFields): React.ReactNode {
+  return (
+    <p className="text-base">
+      {data.inputs.map((input, index) => (
+        <React.Fragment key={input.label}>
+          {index !== 0 && ", "}
+          <strong>{input.label}</strong>: {input.value}
+        </React.Fragment>
+      ))}
+    </p>
+  );
+}
+
 export default function Home() {
   const inputCreatorForm = useForm<InputCreatorFormFields>({
     resolver: zodResolver(inputCreatorSchema),
@@ -66,12 +101,13 @@ export default function Home() {
     fields: inputs,
     append,
     remove,
+    swap,
   } = useFieldArray({
     control: createdForm.control,
     name: "inputs",
   });
 
-  const onSubmit: SubmitHandler<InputCreatorFormFields> = (data) => {
+  const onCreateInput: SubmitHandler<InputCreatorFormFields> = (data) => {
     append({
       label: data.label,
       value: data.defaultValue ?? "",
@@ -83,11 +119,23 @@ export default function Home() {
     });
   };
 
+  const onCreatedFormSubmit: SubmitHandler<CreatedFormFields> = (data) => {
+    toast(
+      <div>
+        <h3 className="text-lg font-semibold flex items-center gap-2">
+          <PartyPopper size={20} />
+          Answers submitted!
+        </h3>
+        {formatCreatedFormData(data)}
+      </div>
+    );
+  };
+
   return (
     <main className="flex min-h-screen flex-col gap-8 items-center p-24">
       <Form {...inputCreatorForm}>
         <form
-          onSubmit={inputCreatorForm.handleSubmit(onSubmit)}
+          onSubmit={inputCreatorForm.handleSubmit(onCreateInput)}
           className="space-y-8"
         >
           <h1 className="text-2xl font-bold">New input</h1>
@@ -137,19 +185,23 @@ export default function Home() {
                     defaultValue={field.value}
                     className="flex flex-col space-y-1"
                   >
-                    {INPUT_TYPES.map((type) => (
-                      <FormItem
-                        key={type}
-                        className="flex items-center space-x-3 space-y-0"
-                      >
-                        <FormControl>
-                          <RadioGroupItem value={type} />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          {capitalizeFirstLetter(type)}
-                        </FormLabel>
-                      </FormItem>
-                    ))}
+                    {INPUT_TYPES.map((type) => {
+                      const Icon = InputTypesIcons[type];
+                      return (
+                        <FormItem
+                          key={type}
+                          className="flex items-center space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <RadioGroupItem value={type} />
+                          </FormControl>
+                          <FormLabel className="font-normal flex items-center gap-2">
+                            <Icon size={20} />
+                            {capitalizeFirstLetter(type)}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    })}
                   </RadioGroup>
                 </FormControl>
                 {inputCreatorForm.formState.errors.type && (
@@ -169,7 +221,10 @@ export default function Home() {
         </form>
       </Form>
       <Form {...createdForm}>
-        <form className="space-y-8">
+        <form
+          onSubmit={createdForm.handleSubmit(onCreatedFormSubmit)}
+          className="space-y-8"
+        >
           <ul className="space-y-8">
             {inputs.map((input, index) => (
               <li key={input.id}>
@@ -180,15 +235,40 @@ export default function Home() {
                     <FormItem>
                       <FormLabel>{input.label}</FormLabel>
                       <FormControl>
-                        <div className="flex items-center space-x-4">
+                        <div className="grid grid-flow-col space-x-4">
                           <Input {...field} type={input.type} />
                           <Button
                             type="button"
                             onClick={() => remove(index)}
-                            className="bg-destructive text-white hover:bg-destructive/80"
+                            className="bg-destructive text-white hover:bg-destructive/80 flex items-center gap-2"
                           >
+                            <Trash2 size={20} />
                             Remove
                           </Button>
+                          {inputs.length > 1 && (
+                            <Button
+                              type="button"
+                              className="flex items-center gap-2"
+                              onClick={() =>
+                                swap(
+                                  index,
+                                  index === 0 ? inputs.length - 1 : index - 1
+                                )
+                              }
+                            >
+                              {index === 0 ? (
+                                <>
+                                  <ArrowDown size={20} />
+                                  Move down
+                                </>
+                              ) : (
+                                <>
+                                  <ArrowUp size={20} />
+                                  Move up
+                                </>
+                              )}
+                            </Button>
+                          )}
                         </div>
                       </FormControl>
                       {createdForm.formState.errors.inputs?.[index]?.value && (
@@ -205,6 +285,14 @@ export default function Home() {
               </li>
             ))}
           </ul>
+          {inputs.length > 0 && (
+            <Button
+              type="submit"
+              className="w-full bg-blue-500 hover:bg-blue-400"
+            >
+              Submit
+            </Button>
+          )}
         </form>
       </Form>
     </main>
